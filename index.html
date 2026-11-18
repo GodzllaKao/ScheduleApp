@@ -2,7 +2,7 @@
 <html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>排時間</title>
+<title>快沒時間了</title>
 <style>
 :root{--bg:#EEF1F4;--ink:#1B2430;--mut:#6B7785;--line:#D5DBE2;--pri:#25456B;--g:#2FA36B;--r:#D6455A;--y:#E8B923}
 *{box-sizing:border-box}[hidden]{display:none!important}
@@ -50,14 +50,12 @@ th.sl{font-size:12px;color:var(--mut)}
 <script>
 const $=(s)=>document.querySelector(s),app=$('#app');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-/* ===== 設定：請填入你的 Supabase 專案資訊（見 README） ===== */
-const SUPABASE_URL='https://cbhqumfmiexkjhdtuhnu.supabase.co';       // 例：https://abcdefghijkl.supabase.co
-const SUPABASE_ANON_KEY='sb_publishable_moXSEDfasxrygxLfXNXmxw_Ka7SK7T-';  // anon public key（或新版的 Publishable key）。千萬不要放 service_role / secret key
-/* ===== 以下不用改 ===== */
-const APP_VERSION='3.0.0';   // 必須與 schema.sql 的 app_version() 相同
-const POLL_MS=10000;         // 自動重新載入別人資料的間隔
+const SUPABASE_URL='https://cbhqumfmiexkjhdtuhnu.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_moXSEDfasxrygxLfXNXmxw_Ka7SK7T-';
+const APP_VERSION='3.0.0';   // 與 schema.sql app_version() 同步
+const POLL_MS=10000;         // 自動重新載入資料間隔
 const rpc=async(fn,args={})=>{
-  if(!SUPABASE_URL||!SUPABASE_ANON_KEY)throw new Error('尚未設定 SUPABASE_URL 與 SUPABASE_ANON_KEY（請編輯 index.html 最上方的兩個常數）');
+  if(!SUPABASE_URL||!SUPABASE_ANON_KEY)throw new Error('尚未設定 SUPABASE_URL 與 SUPABASE_ANON_KEY');
   const h={'Content-Type':'application/json',apikey:SUPABASE_ANON_KEY};
   if(SUPABASE_ANON_KEY.startsWith('eyJ'))h.Authorization='Bearer '+SUPABASE_ANON_KEY;
   let r;
@@ -85,8 +83,8 @@ id?viewEvent():viewCreate();
 function viewCreate(){
   let dates=[],touched=false;
   const hrs=(a,b,sel)=>{let o='';for(let h=a;h<=b;h++)o+=`<option value="${h*60}"${h==sel?' selected':''}>${tl(h*60)}</option>`;return o};
-  app.innerHTML=`<h1>建立聚會時間表</h1><div class="card">
-  <label>活動名稱<input id="title" maxlength="60" placeholder="例如：週末聚餐"></label>
+  app.innerHTML=`<h1>建立活動時間表</h1><div class="card">
+  <label>活動名稱<input id="title" maxlength="60" placeholder="例如：拯救世界"></label>
   <div class="row"><label>起始日<input type="date" id="from"></label><label>結束日<input type="date" id="to"></label><button id="add" class="ghost">加入日期</button></div>
   <p class="hint">起訖日都選好就會自動加入；只選一天時，只填起始日再按「加入日期」。可重複加入不同區間，點日期可移除。</p><div id="chips" class="chips"></div>
   <label class="chk"><input type="checkbox" id="slots">選擇時段</label>
