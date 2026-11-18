@@ -1,0 +1,29 @@
+# 保活：每週兩次呼叫 Supabase 的 ping() RPC，避免免費專案因閒置被暫停。
+# 需要在 GitHub repo 的 Settings → Secrets and variables → Actions 建立兩個 Repository secrets：
+#   SUPABASE_URL        例：https://abcdefghijkl.supabase.co
+#   SUPABASE_ANON_KEY   與 index.html 裡填的是同一把 anon / publishable key
+name: keepalive
+
+on:
+  schedule:
+    - cron: "17 2 * * 1,4"   # 每週一、週四 02:17 (UTC)
+  workflow_dispatch:          # 也可以在 Actions 頁面手動按 Run workflow 測試
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call ping()
+        env:
+          URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "請先在 repo 設定 SUPABASE_URL 與 SUPABASE_ANON_KEY 這兩個 secrets"; exit 1
+          fi
+          AUTH=()
+          case "$KEY" in eyJ*) AUTH=(-H "Authorization: Bearer $KEY");; esac
+          curl -fsS --retry 3 --retry-delay 10 -X POST "${URL%/}/rest/v1/rpc/ping" \
+            -H "apikey: $KEY" "${AUTH[@]}" \
+            -H "Content-Type: application/json" -d '{}'
+          echo
