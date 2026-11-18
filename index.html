@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>排時間</title>
+<style>
+:root{--bg:#EEF1F4;--ink:#1B2430;--mut:#6B7785;--line:#D5DBE2;--pri:#25456B;--g:#2FA36B;--r:#D6455A;--y:#E8B923}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 14px 60px}
+h1{font-size:22px;margin:8px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;margin:12px 0;display:grid;gap:10px}
+label{display:grid;gap:4px;font-size:13px;color:var(--mut)}
+input,select{font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff;width:100%}
+button{font:inherit;padding:8px 14px;border:0;border-radius:6px;background:var(--pri);color:#fff;cursor:pointer}
+button.ghost{background:#fff;color:var(--pri);border:1px solid var(--pri)}
+.row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.row>label{flex:1;min-width:130px}
+.chk{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px}.chk input{width:auto}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{background:#E3EAF2;color:var(--pri);padding:4px 10px}
+.hint,.meta{color:var(--mut);font-size:13px;margin:0}.err{color:var(--r);margin:0}
+.bar{display:flex;gap:8px;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:3}
+.bar button{background:#fff;color:var(--ink);border:2px solid transparent;box-shadow:0 0 0 1px var(--line)}
+.bar button.on{border-color:var(--ink)}
+.bar button::before{content:"";display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;background:var(--c,#E4E9EE)}
+[data-b=g]{--c:var(--g)}[data-b=r]{--c:var(--r)}[data-b=y]{--c:var(--y)}
+.wrap{overflow:auto;max-height:75vh;max-height:75dvh;background:#fff;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:separate;border-spacing:0}
+th,td{padding:0}
+th{font-weight:500;font-size:13px;background:#fff}
+thead th{position:sticky;top:0;z-index:3;height:38px;border-bottom:1px solid var(--line)}
+th.nh{min-width:60px;max-width:84px;padding:0 4px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+th.rowh{position:sticky;left:0;z-index:2;width:104px;min-width:104px;max-width:104px;text-align:left;padding:0 6px;border-right:1px solid var(--line)}
+thead th.corner{z-index:5}
+th.me,td.me{position:sticky;left:104px;box-shadow:1px 0 0 var(--line)}
+th.me{z-index:4;font-weight:700}td.me{z-index:1}
+td.c{height:30px;min-width:60px;background:#E4E9EE;border:2px solid #fff}
+td.g{background:var(--g)}td.r{background:var(--r)}td.y{background:var(--y)}
+td.m{background:repeating-linear-gradient(45deg,var(--g) 0 5px,var(--y) 5px 10px)}
+td.mine{cursor:crosshair;touch-action:pan-x;user-select:none;-webkit-user-select:none}
+td.cnt{text-align:center;font-size:12px;color:var(--mut);min-width:44px}
+tr.dr th.rowh{background:#E3EAF2;font-weight:600}
+tr.dr td.c{height:42px}
+th.sl{font-size:12px;color:var(--mut)}
+.tg{width:100%;text-align:left;background:none;color:var(--pri);font-size:15px;font-weight:600;padding:0 2px;min-height:42px}
+.x{padding:0 4px;background:none;color:var(--r)}
+#toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:6px 14px;border-radius:16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}#toast.on{opacity:.9}
+#ver{background:#FFF3CD;color:#664D03;border-bottom:1px solid #E8B923;padding:8px 14px;font-size:13px}
+.res span:last-child{text-align:right}.res{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:8px}
+</style></head><body><div id="ver" hidden></div><main id="app">載入中…</main><div id="toast"></div>
+<script>
+const $=(s)=>document.querySelector(s),app=$('#app');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* ===== 設定：請填入你的 Supabase 專案資訊（見 README） ===== */
+const SUPABASE_URL='https://cbhqumfmiexkjhdtuhnu.supabase.co';       // 例：https://abcdefghijkl.supabase.co
+const SUPABASE_ANON_KEY='sb_publishable_moXSEDfasxrygxLfXNXmxw_Ka7SK7T-';  // anon public key（或新版的 Publishable key）。千萬不要放 service_role / secret key
+/* ===== 以下不用改 ===== */
+const APP_VERSION='3.0.0';   // 必須與 schema.sql 的 app_version() 相同
+const POLL_MS=10000;         // 自動重新載入別人資料的間隔
+const rpc=async(fn,args={})=>{
+  if(!SUPABASE_URL||!SUPABASE_ANON_KEY)throw new Error('尚未設定 SUPABASE_URL 與 SUPABASE_ANON_KEY（請編輯 index.html 最上方的兩個常數）');
+  const h={'Content-Type':'application/json',apikey:SUPABASE_ANON_KEY};
+  if(SUPABASE_ANON_KEY.startsWith('eyJ'))h.Authorization='Bearer '+SUPABASE_ANON_KEY;
+  let r;
+  try{r=await fetch(SUPABASE_URL.replace(/\/+$/,'')+'/rest/v1/rpc/'+fn,{method:'POST',headers:h,body:JSON.stringify(args)})}
+  catch(_){throw new Error('無法連線，請檢查網路')}
+  const d=await r.json().catch(()=>null);
+  if(!r.ok){
+    const biz=!!(d&&d.code==='P0001'&&d.message);
+    const er=new Error(biz?d.message:'伺服器錯誤（'+r.status+(d&&d.message?'：'+d.message:'')+'）');
+    er.biz=biz;throw er;
+  }
+  return d;
+};
+const checkVersion=()=>rpc('app_version').then(v=>{if(v!==APP_VERSION)throw new Error('index.html 是 '+APP_VERSION+'，資料庫是 '+v+'。請依 README「更新方式」把 index.html 與 schema.sql 一起更新')}).catch(e=>{const b=document.getElementById('ver');b.textContent='⚠ '+e.message;b.hidden=false});
+const isoOf=v=>{const t=new Date(v).getTime();if(!t)throw new Error('請填寫截止時間');return new Date(t).toISOString()};
+const BASE=location.origin+location.pathname;
+const WD='日一二三四五六',fmtD=d=>{const[,m,x]=d.split('-');return`${+m}/${+x}`},wd=d=>WD[new Date(d+'T00:00:00').getDay()];
+const addDays=(d,n)=>{const x=new Date(d+'T00:00:00');x.setDate(x.getDate()+n);return x.toLocaleDateString('sv')};
+const tl=m=>{const h=Math.floor(m/60);return(h>=24?'次日 ':'')+String(h%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
+const toLocal=ms=>new Date(ms-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
+const id=((new URLSearchParams(location.search).get('e')||'').match(/^[\w-]+$/)||[])[0];
+checkVersion();
+id?viewEvent():viewCreate();
+
+function viewCreate(){
+  let dates=[],touched=false;
+  const hrs=(a,b,sel)=>{let o='';for(let h=a;h<=b;h++)o+=`<option value="${h*60}"${h==sel?' selected':''}>${tl(h*60)}</option>`;return o};
+  app.innerHTML=`<h1>建立聚會時間表</h1><div class="card">
+  <label>活動名稱<input id="title" maxlength="60" placeholder="例如：週末聚餐"></label>
+  <div class="row"><label>起始日<input type="date" id="from"></label><label>結束日<input type="date" id="to"></label><button id="add" class="ghost">加入日期</button></div>
+  <p class="hint">起訖日都選好就會自動加入；只選一天時，只填起始日再按「加入日期」。可重複加入不同區間，點日期可移除。</p><div id="chips" class="chips"></div>
+  <label class="chk"><input type="checkbox" id="slots">選擇時段</label>
+  <div class="row" id="slotbox" hidden><label>單位<select id="st"><option value="30">30 分鐘</option><option value="60">1 小時</option></select></label><label>從<select id="sm">${hrs(0,29,13)}</select></label><label>到<select id="em">${hrs(1,30,25)}</select></label></div>
+  <label>填寫截止時間<input type="datetime-local" id="dl"></label>
+  <button id="go">建立並取得連結</button><p id="err" class="err"></p></div>`;
+  const draw=()=>{dates=[...new Set(dates)].sort();$('#chips').innerHTML=dates.map(d=>`<button class="chip" data-d="${d}">${fmtD(d)}(${wd(d)}) ×</button>`).join('')||'<span class="hint">尚未選擇日期</span>';if(!touched&&dates.length)$('#dl').value=addDays(dates[0],-1)+'T23:59'};
+  draw();
+  $('#dl').oninput=()=>touched=true;
+  $('#slots').onchange=e=>$('#slotbox').hidden=!e.target.checked;
+  const addRange=()=>{let f=$('#from').value,t=$('#to').value||f;if(!f)return;if(t<f)[f,t]=[t,f];for(let d=f;d<=t&&dates.length<62;d=addDays(d,1))dates.push(d);$('#from').value=$('#to').value='';draw()};
+  $('#add').onclick=addRange;
+  ['from','to'].forEach(k=>$('#'+k).onchange=()=>{if($('#from').value&&$('#to').value)addRange()});
+  ['from','to','dl'].forEach(k=>$('#'+k).addEventListener('click',e=>{try{e.target.showPicker()}catch(_){}}));
+  $('#chips').onclick=e=>{const d=e.target.dataset.d;if(d){dates=dates.filter(x=>x!==d);draw()}};
+  $('#go').onclick=async()=>{const b=$('#go');b.disabled=true;try{const r=await rpc('create_event',{p_title:$('#title').value,p_dates:dates,p_slots:$('#slots').checked,p_start_min:+$('#sm').value,p_end_min:+$('#em').value,p_step:+$('#st').value,p_deadline:isoOf($('#dl').value)});localStorage['admin_'+r.id]=r.admin;location.href=location.pathname+'?e='+r.id}catch(x){$('#err').textContent=x.message;b.disabled=false}};
+}
+
+async function viewEvent(){
+  const K='me_'+id,hashA=(location.hash.match(/admin=([\w-]+)/)||[])[1];
+  if(hashA){localStorage['admin_'+id]=hashA;try{history.replaceState(null,'',location.pathname+location.search)}catch(_){}}
+  const admin=localStorage['admin_'+id]||'';
+  let me=JSON.parse(localStorage[K]||'null'),ev,cells={},dirty=false,painting=false,brush='g',includeY=false,timer,C=[];
+  const expanded=new Set();
+  const slotKeys=d=>{const a=[];for(let m=ev.startMin;m<ev.endMin;m+=ev.step)a.push(d+'_'+m);return a};
+  let all=[];
+  const stateRow=(cs,d,m)=>{
+    if(m!=null)return cs[d+'_'+m]||'';
+    if(!ev.slots)return cs[d]||'';
+    const v=slotKeys(d).map(k=>cs[k]||''),u=[...new Set(v)];
+    return u.length==1?u[0]:(v.some(x=>x)?'m':'');
+  };
+  const cnt=(d,m)=>`${all.filter(p=>stateRow(p.cells,d,m)==='g').length}/${all.length}`;
+
+  async function load(){
+    try{ev=await rpc('get_event',{p_id:id,p_admin:admin})}catch(e){if(ev){setMsg(e.message,4000);return}app.innerHTML=`<h1>${esc(e.message)}</h1>`;return}
+    ev.step=ev.step||30;
+    if(me){const p=ev.people.find(p=>p.name===me.name);if(!p&&!dirty){me=null;delete localStorage[K]}else if(p&&!dirty)cells={...p.cells}}
+    render();
+  }
+  function common(ok){
+    const P=ev.people;
+    return ev.dates.map(d=>{
+      if(!ev.slots)return{d,t:P.every(p=>ok.includes(p.cells[d]||'y'))?['整天']:[]};
+      const r=[];let s=null;
+      for(let m=ev.startMin;m<=ev.endMin;m+=ev.step){
+        const good=m<ev.endMin&&P.every(p=>ok.includes(p.cells[d+'_'+m]||'y'));
+        if(good&&s==null)s=m;
+        if(!good&&s!=null){r.push(tl(s)+'–'+tl(m));s=null}
+      }
+      return{d,t:r};
+    });
+  }
+  function render(){
+    const P=ev.people.filter(p=>!me||p.name!==me.name),mine={name:me?.name,cells},canPaint=me&&!ev.closed;
+    all=me?[mine,...P]:P;
+    const td=(p,isMe,d,m)=>`<td class="c ${stateRow(p.cells,d,m)}${isMe?' me':''}${isMe&&canPaint?' mine':''}"${isMe&&canPaint?` data-d="${d}"${m!=null?` data-m="${m}"`:''}`:''}></td>`;
+    const rowCells=(d,m)=>(me?td(mine,true,d,m):'')+P.map(p=>td(p,false,d,m)).join('')+`<td class="cnt" data-d="${d}"${m!=null?` data-m="${m}"`:''}>${cnt(d,m)}</td>`;
+    let body='';
+    for(const d of ev.dates){
+      const ex=ev.slots&&expanded.has(d);
+      body+=`<tr class="dr"><th class="rowh">${ev.slots?`<button class="tg" data-t="${d}">${ex?'▾':'▸'} ${fmtD(d)}(${wd(d)})</button>`:`${fmtD(d)}(${wd(d)})`}</th>${rowCells(d,null)}</tr>`;
+      if(ex)for(let m=ev.startMin;m<ev.endMin;m+=ev.step)body+=`<tr><th class="rowh sl">${tl(m)}</th>${rowCells(d,m)}</tr>`;
+    }
+    const head=`<tr><th class="rowh corner"></th>${me?'<th class="nh me">我</th>':''}${P.map(p=>`<th class="nh" title="${esc(p.name)}">${esc(p.name)}${ev.isAdmin?`<button class="x" data-del="${esc(p.name)}">×</button>`:''}</th>`).join('')}<th class="nh">有空</th></tr>`;
+    let h=`<h1>${esc(ev.title)}</h1><p class="meta">${ev.closed?'已截止，無法再修改':'填寫截止：'+new Date(ev.deadline).toLocaleString('zh-TW',{hour12:false,dateStyle:'medium',timeStyle:'short'})}</p>`;
+    if(ev.isAdmin)h+=`<div class="card"><b>分享</b><label>參與連結（傳給大家）<input readonly value="${BASE}?e=${id}" onfocus="this.select()"></label><label>管理連結（自己保存，換裝置時用）<input readonly value="${BASE}?e=${id}#admin=${admin}" onfocus="this.select()"></label><div class="row"><label>截止時間<input type="datetime-local" id="newdl" value="${toLocal(ev.deadline)}"></label><button id="savedl" class="ghost">更新截止</button></div></div>`;
+    if(!me&&!ev.closed)h+=`<div class="card"><label>輸入暱稱後開始填寫<input id="nm" maxlength="20"></label><button id="join">加入</button><p id="err" class="err"></p></div>`;
+    if(canPaint)h+=`<div class="bar">${[['g','有空'],['r','沒空'],['y','不確定'],['x','清除']].map(([k,t])=>`<button data-b="${k}"${brush==k?' class="on"':''}>${t}</button>`).join('')}</div>`;
+    h+=`<div class="wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+    if(ev.slots)h+=`<p class="hint">按日期旁的 ▸ 展開時段；日期那一列塗色會套用到整天。沒有塗色視為不確定。</p>`;
+    if(ev.closed)h+=`<div class="card"><b>大家都有空的時段</b><p class="hint">沒有塗色的格子視為「不確定」。「含不確定」會把標示不確定或未填的人也算進來，代表可能可行的時段。</p>${ev.people.length?(()=>{const a=common(['g']),b=common(['g','y']),f=t=>t.length?t.join('、'):'—';return a.map((x,i)=>`<div class="res"><span>${fmtD(x.d)}(${wd(x.d)})</span><span>全員有空：${f(x.t)}<br>含不確定：${f(b[i].t)}</span></div>`).join('')})():'<p class="hint">還沒有人填寫</p>'}</div>`;
+    const w=$('.wrap'),sx=w?w.scrollLeft:0,sy=w?w.scrollTop:0;
+    app.innerHTML=h;
+    const w2=$('.wrap');if(w2){w2.scrollLeft=sx;w2.scrollTop=sy}
+  }
+  let tt;const setMsg=(t,ms=1200)=>{const m=$('#toast');m.textContent=t;m.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>m.classList.remove('on'),ms)};
+  const save=(delay=600)=>{dirty=true;clearTimeout(timer);timer=setTimeout(async()=>{try{await rpc('save_cells',{p_id:id,p_name:me.name,p_token:me.token,p_cells:cells});dirty=false;setMsg('已儲存')}catch(e){setMsg(e.message,4000);if(e.biz){dirty=false;load()}else save(5000)}},delay)};
+  const refresh=()=>{document.querySelectorAll('td.mine').forEach(t=>t.className='c me mine '+stateRow(cells,t.dataset.d,t.dataset.m));document.querySelectorAll('td.cnt').forEach(t=>t.textContent=cnt(t.dataset.d,t.dataset.m))};
+  const paint=t=>{const d=t.dataset.d,m=t.dataset.m,v=brush=='x'?null:brush,ks=m!=null?[d+'_'+m]:ev.slots?slotKeys(d):[d];ks.forEach(k=>v?cells[k]=v:delete cells[k]);refresh();save()};
+
+  app.onclick=async e=>{
+    const t=e.target,th=t.closest('[data-t]');
+    try{
+      if(t.dataset.b){brush=t.dataset.b;render()}
+      else if(th){const d=th.dataset.t;expanded.has(d)?expanded.delete(d):expanded.add(d);render()}
+      else if(t.dataset.del){if(confirm(`移除「${t.dataset.del}」？`)){await rpc('delete_person',{p_id:id,p_admin:admin,p_name:t.dataset.del});load()}}
+      else if(t.id=='join'){const name=$('#nm').value.trim(),r=await rpc('join_event',{p_id:id,p_name:name});me={name:r.name,token:r.token};localStorage[K]=JSON.stringify(me);cells={};load()}
+      else if(t.id=='savedl'){await rpc('set_deadline',{p_id:id,p_admin:admin,p_deadline:isoOf($('#newdl').value)});load()}
+      else if(t.id=='incy'){includeY=t.checked;render()}
+    }catch(x){const er=$('#err');er?er.textContent=x.message:alert(x.message)}
+  };
+  let last=null;
+  document.addEventListener('pointerdown',e=>{const t=e.target.closest?.('td.mine');if(t){painting=true;last=t;paint(t);e.preventDefault()}});
+  document.addEventListener('pointermove',e=>{if(!painting)return;const t=document.elementFromPoint(e.clientX,e.clientY)?.closest('td.mine');if(t&&t!==last){last=t;paint(t)}});
+  ['pointerup','pointercancel'].forEach(n=>document.addEventListener(n,()=>{painting=false;last=null}));
+  setInterval(()=>{if(me&&!dirty&&!painting&&!/INPUT|SELECT/.test(document.activeElement.tagName))load()},POLL_MS);
+  load();
+}
+</script></body></html>
